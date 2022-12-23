@@ -35,16 +35,73 @@ describe("ETHDaddy", () => {
       const result=await ethDaddy.owner()
       expect(result).to.equal(deployer.address)
     })
+    it('returns max supply', async ()=>{
+      const result=await ethDaddy.maxSupply()
+      expect(result).to.equal(1)
+    })
+    it('returns total supply', async ()=>{
+      const result=await ethDaddy.totalSupply()
+      expect(result).to.equal(0)
+    })
   })
 
   describe("Domain",()=>{
     it("Returns domain attributes", async()=>{
-      let domain=await ethDaddy.domains(1);
+      let domain=await ethDaddy.getDomain(1);
       expect(domain.name).to.be.equal("abc.eth");
       expect(domain.cost).to.be.equal(tokens(10));
       expect(domain.isOwned).to.be.equal(false);
     })
   })
   
+  describe("Minting",()=>{
+    const ID=1;
+    const AMOUNT=ethers.utils.parseUnits('10', 'ether');
+
+    beforeEach(async ()=>{
+      const transaction=await ethDaddy.connect(owner1).mint(ID,{value:AMOUNT});
+      await transaction.wait();
+    })
+    it('Updates the owner', async () => {
+      const owner = await ethDaddy.ownerOf(ID)
+      expect(owner).to.be.equal(owner1.address)
+    })
+
+    it('Updates the domain status', async () => {
+      const domain = await ethDaddy.getDomain(ID)
+      expect(domain.isOwned).to.be.equal(true)
+    })
+
+    it('Updates the contract balance', async () => {
+      const result = await ethDaddy.getBalance()
+      expect(result).to.be.equal(AMOUNT)
+    })
+  })
+
+  describe("Withdrawing", () => {
+    const ID = 1
+    const AMOUNT = ethers.utils.parseUnits("10", 'ether')
+    let balanceBefore
+
+    beforeEach(async () => {
+      balanceBefore = await ethers.provider.getBalance(deployer.address)
+
+      let transaction = await ethDaddy.connect(owner1).mint(ID, { value: AMOUNT })
+      await transaction.wait()
+
+      transaction = await ethDaddy.connect(deployer).withdraw()
+      await transaction.wait()
+    })
+
+    it('Updates the owner balance', async () => {
+      const balanceAfter = await ethers.provider.getBalance(deployer.address)
+      expect(balanceAfter).to.be.greaterThan(balanceBefore)
+    })
+
+    it('Updates the contract balance', async () => {
+      const result = await ethDaddy.getBalance()
+      expect(result).to.equal(0)
+    })
+  })
 
 })
